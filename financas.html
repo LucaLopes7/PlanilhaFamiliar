@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão Financeira Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: { 
+                    colors: { 
+                        slate: { 850: '#151e32', 900: '#0f172a', 950: '#020617' } 
+                    } 
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Transições */
+        body, div, p, h1, h2, h3, input, select { transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+
+        /* Correção Select Dark Mode */
+        .dark select option { background-color: #1e293b; color: #f1f5f9; }
+
+        /* Modo Privacidade (Blur) */
+        .privacy-mode .privacy-blur {
+            filter: blur(5px);
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+        .privacy-mode .privacy-blur:hover { filter: blur(0); }
+
+        /* Toast Animations */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-slate-900 dark:bg-slate-950 text-white shadow-lg shrink-0 z-20">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
+            
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-1.5 rounded-lg">
+                    <i data-lucide="layout-dashboard" class="text-white w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight hidden md:block">Gestão Financeira</h1>
+                    <h1 class="text-lg font-bold tracking-tight md:hidden">Gestão</h1>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 md:gap-3">
+                
+                <div class="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                    <button onclick="switchTab('dashboard')" id="btn-tab-dashboard" class="px-3 py-1.5 text-xs md:text-sm rounded-md font-medium transition-all text-slate-400 hover:text-white">
+                        Visão
+                    </button>
+                    <button onclick="switchTab('month')" id="btn-tab-month" class="px-3 py-1.5 text-xs md:text-sm rounded-md font-medium transition-all bg-slate-700 text-white shadow-sm">
+                        Mês
+                    </button>
+                </div>
+
+                <div id="month-selector-container" class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                    <i data-lucide="calendar" class="w-4 h-4 text-slate-400 hidden md:block"></i>
+                    <input type="month" id="monthPicker" class="bg-transparent text-sm text-white focus:outline-none cursor-pointer font-sans w-24 md:w-auto" onchange="changeMonth(this.value)">
+                </div>
+
+                <div class="relative group">
+                    <button class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" title="Dados e Backup">
+                        <i data-lucide="hard-drive-download" class="w-5 h-5"></i>
+                    </button>
+                    <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 hidden group-hover:block hover:block z-50">
+                        <div class="py-1">
+                            <button onclick="exportData()" class="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex gap-2 items-center">
+                                <i data-lucide="download" class="w-4 h-4"></i> Baixar Backup
+                            </button>
+                            <label class="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex gap-2 items-center cursor-pointer">
+                                <i data-lucide="upload" class="w-4 h-4"></i> Restaurar
+                                <input type="file" accept=".json" class="hidden" onchange="importData(this)">
+                            </label>
+                            <div class="border-t border-slate-100 dark:border-slate-800 my-1"></div>
+                            <button onclick="resetAllData()" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex gap-2 items-center">
+                                <i data-lucide="trash" class="w-4 h-4"></i> Zerar Tudo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="togglePrivacy()" id="privacy-btn" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" title="Ocultar Valores">
+                    <i data-lucide="eye" class="w-5 h-5"></i>
+                </button>
+
+                <button onclick="openSettingsModal()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" title="Configurações">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+
+                <button onclick="toggleTheme()" class="p-2 text-yellow-400 hover:bg-slate-800 rounded-lg transition-colors" id="theme-toggle" title="Alternar Tema">
+                    <i data-lucide="sun" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
+        <div class="max-w-7xl mx-auto space-y-6">
+
+            <div id="view-dashboard" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">
+                        <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Média de Gastos</p>
+                        <h2 class="text-2xl font-bold text-slate-800 dark:text-white mt-2 privacy-blur" id="dash-avg-expense">R$ 0,00</h2>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">
+                        <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Saldo Acumulado</p>
+                        <h2 class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-2 privacy-blur" id="dash-total-saved">R$ 0,00</h2>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 p-6 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">
+                        <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Mês de Maior Gasto</p>
+                        <h2 class="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-2" id="dash-highest-month">-</h2>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                    <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">Histórico de Gastos</h3>
+                    <div class="h-80 w-full">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-month" class="space-y-6">
+                
+                <div class="bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-3 w-full md:w-auto">
+                         <div class="p-2 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full"><i data-lucide="wallet"></i></div>
+                         <div>
+                             <p class="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold">Receita Mensal</p>
+                             <div class="flex items-center">
+                                 <span class="text-slate-400 mr-2 font-light">R$</span>
+                                 <input type="number" id="currentIncome" class="text-2xl font-bold text-slate-800 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-40 transition-colors privacy-blur" placeholder="0.00" onchange="updateIncome(this.value)">
+                             </div>
+                         </div>
+                    </div>
+                    
+                    <div class="flex gap-8 text-right w-full md:w-auto justify-end">
+                        <div>
+                            <p class="text-[10px] text-slate-400 uppercase">Gastos</p>
+                            <p class="text-lg font-bold text-rose-600 dark:text-rose-400 privacy-blur" id="month-total-expenses">R$ 0,00</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-400 uppercase">Saldo</p>
+                            <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400 privacy-blur" id="month-balance">R$ 0,00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <div class="space-y-6">
+                        <div class="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                            <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-4 text-center">Distribuição</h3>
+                            <div class="h-56 relative flex justify-center">
+                                <canvas id="monthPieChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase">Metas</h3>
+                                <button onclick="openSettingsModal()" class="text-xs text-blue-500 hover:underline">Configurar</button>
+                            </div>
+                            <div id="budget-bars-container" class="space-y-4"></div>
+                        </div>
+
+                        <div class="bg-slate-800 dark:bg-slate-950 rounded-lg p-6 text-white shadow-md relative overflow-hidden border border-slate-700">
+                            <div class="relative z-10">
+                                <p class="text-xs text-slate-400 uppercase font-bold">vs Mês Anterior</p>
+                                <div class="flex items-end gap-2 mt-2">
+                                    <span class="text-3xl font-bold privacy-blur" id="month-delta-val">R$ 0</span>
+                                </div>
+                                <p class="text-xs mt-2 text-slate-400" id="month-delta-text">...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col">
+                        
+                        <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white">Lançamentos</h3>
+                            
+                            <div class="flex gap-2 w-full md:w-auto">
+                                <div class="relative flex-1 md:w-64">
+                                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                                    <input type="text" id="searchInput" placeholder="Buscar despesa..." onkeyup="renderMonthView()" 
+                                        class="w-full pl-9 pr-4 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-white">
+                                </div>
+                                
+                                <button onclick="copyPreviousMonth()" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded-md text-sm transition-colors border border-slate-200 dark:border-slate-700" title="Copiar do Mês Anterior">
+                                    <i data-lucide="copy" class="w-4 h-4"></i> <span class="hidden sm:inline">Copiar</span>
+                                </button>
+
+                                <button onclick="addExpenseItem()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm transition-colors shadow-sm">
+                                    <i data-lucide="plus" class="w-4 h-4"></i> <span class="hidden sm:inline">Novo</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto flex-1">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px]">
+                                    <tr>
+                                        <th class="px-6 py-3">Categoria</th>
+                                        <th class="px-6 py-3">Item</th>
+                                        <th class="px-6 py-3 text-right">Valor (R$)</th>
+                                        <th class="px-6 py-3 text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expensesTableBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    </tbody>
+                            </table>
+                            
+                            <div id="empty-state" class="hidden py-10 text-center">
+                                <div class="inline-flex bg-slate-100 dark:bg-slate-800 p-4 rounded-full mb-3">
+                                    <i data-lucide="receipt" class="text-slate-400 w-6 h-6"></i>
+                                </div>
+                                <p class="text-slate-500 dark:text-slate-400 text-sm">Nenhum gasto encontrado.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+    <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <h3 class="font-bold text-lg text-slate-800 dark:text-white">Configurações</h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-rose-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+                
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2">Adicionar Categoria</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="newCatName" placeholder="Nome..." class="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-white focus:outline-none focus:border-blue-500">
+                        <button onclick="addNewCategory()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm">Add</button>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100 dark:border-slate-800">
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-3">Teto de Gastos (R$)</label>
+                    <div id="modal-categories-list" class="space-y-3"></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-right">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md text-sm hover:bg-slate-300 dark:hover:bg-slate-700">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ESTADO ---
+        const DEFAULT_CATEGORIES = ['Habitação', 'Alimentação', 'Educação', 'Saúde', 'Transporte', 'Lazer', 'Investimentos', 'Reserva', 'Outros'];
+        let settings = { categories: [...DEFAULT_CATEGORIES], budgets: {}, theme: 'light', privacy: false };
+        let db = {}; 
+        let currentMonthKey = new Date().toISOString().slice(0, 7); 
+        let activeTab = 'month'; 
+        let trendChart = null;
+        let monthPieChart = null;
+
+        // --- INIT ---
+        window.onload = function() {
+            const savedDB = localStorage.getItem('financeDB_v2');
+            if (savedDB) db = JSON.parse(savedDB);
+
+            const savedSettings = localStorage.getItem('financeSettings');
+            if (savedSettings) settings = JSON.parse(savedSettings);
+            else saveSettings();
+
+            applyTheme(settings.theme);
+            applyPrivacy(settings.privacy);
+
+            document.getElementById('monthPicker').value = currentMonthKey;
+            ensureMonthExists(currentMonthKey);
+            renderAll();
+        };
+
+        // --- CORE FUNCTIONS ---
+        function ensureMonthExists(key) {
+            if (!db[key]) {
+                let prevKey = getPreviousMonthKey(key);
+                let defaultIncome = db[prevKey] ? db[prevKey].income : 0;
+                db[key] = { income: defaultIncome, expenses: [] };
+            }
+        }
+
+        function saveDB() {
+            localStorage.setItem('financeDB_v2', JSON.stringify(db));
+            renderAll();
+        }
+
+        function saveSettings() {
+            localStorage.setItem('financeSettings', JSON.stringify(settings));
+        }
+
+        function getPreviousMonthKey(currentKey) {
+            let [y, m] = currentKey.split('-').map(Number);
+            m -= 1;
+            if (m === 0) { m = 12; y -= 1; }
+            return `${y}-${String(m).padStart(2, '0')}`;
+        }
+
+        // --- NOTIFICAÇÕES (TOASTS) ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = type === 'success' 
+                ? 'bg-emerald-500 text-white' 
+                : (type === 'error' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-white');
+            
+            toast.className = `${colors} px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2 toast-enter min-w-[200px]`;
+            
+            let icon = type === 'success' ? 'check-circle' : (type === 'error' ? 'alert-circle' : 'info');
+            toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> ${message}`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- BACKUP / RESTORE ---
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ db, settings }));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "finance_backup_" + new Date().toISOString().slice(0,10) + ".json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+            showToast('Backup baixado com sucesso!');
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    if (json.db) {
+                        db = json.db;
+                        if(json.settings) settings = json.settings;
+                        saveDB();
+                        saveSettings();
+                        location.reload(); 
+                    } else {
+                        showToast('Arquivo inválido!', 'error');
+                    }
+                } catch(err) {
+                    showToast('Erro ao ler arquivo', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetAllData() {
+            if(confirm('Tem certeza? Isso apagará tudo.')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // --- VISUAL FEATURES (THEME & PRIVACY) ---
+        function toggleTheme() {
+            settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+            applyTheme(settings.theme);
+            saveSettings();
+            renderAll();
+        }
+
+        function applyTheme(theme) {
+            const html = document.documentElement;
+            const icon = document.querySelector('#theme-toggle i');
+            if (theme === 'dark') {
+                html.classList.add('dark');
+                if(icon) icon.setAttribute('data-lucide', 'moon');
+            } else {
+                html.classList.remove('dark');
+                if(icon) icon.setAttribute('data-lucide', 'sun');
+            }
+            lucide.createIcons();
+        }
+
+        function togglePrivacy() {
+            settings.privacy = !settings.privacy;
+            applyPrivacy(settings.privacy);
+            saveSettings();
+        }
+
+        function applyPrivacy(active) {
+            const body = document.body;
+            const icon = document.querySelector('#privacy-btn i');
+            if (active) {
+                body.classList.add('privacy-mode');
+                if(icon) icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                body.classList.remove('privacy-mode');
+                if(icon) icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        // --- NAVIGATION ---
+        function switchTab(tab) {
+            activeTab = tab;
+            const dashView = document.getElementById('view-dashboard');
+            const monthView = document.getElementById('view-month');
+            const btnDash = document.getElementById('btn-tab-dashboard');
+            const btnMonth = document.getElementById('btn-tab-month');
+            const monthSelector = document.getElementById('month-selector-container');
+
+            const inactiveClass = "text-slate-400 hover:text-white bg-transparent";
+            const activeClass = "bg-slate-700 text-white shadow-sm";
+
+            if (tab === 'month') {
+                monthView.classList.remove('hidden');
+                dashView.classList.add('hidden');
+                btnMonth.className = `px-3 py-1.5 text-xs md:text-sm rounded-md font-medium transition-all ${activeClass}`;
+                btnDash.className = `px-3 py-1.5 text-xs md:text-sm rounded-md font-medium transition-all ${inactiveClass}`;
+                monthSelector.classList.remove('hidden');
+            } else {
+                dashView.classList.remove('hidden');
+                monthView.classList.add('hidden');
+                btnDash.className = `px-3 py-1.5 text-xs md:text-sm rounded-md font-medium transition-all ${activeClass}`;
+                btnMonth.className = `px-3 py-1.5 text-xs md:text-sm rounded-md font-medium transition-all ${inactiveClass}`;
+                monthSelector.classList.add('hidden');
+            }
+            renderAll();
+        }
+
+        function changeMonth(val) {
+            if(!val) return;
+            currentMonthKey = val;
+            ensureMonthExists(currentMonthKey);
+            renderAll();
+        }
+
+        // --- RENDER ---
+        function renderAll() {
+            lucide.createIcons();
+            if (activeTab === 'month') renderMonthView();
+            else renderDashboardView();
+        }
+
+        function renderMonthView() {
+            const data = db[currentMonthKey];
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            document.getElementById('currentIncome').value = data.income;
+
+            const filteredExpenses = data.expenses.filter(e => 
+                e.item.toLowerCase().includes(searchTerm) || 
+                e.category.toLowerCase().includes(searchTerm)
+            );
+
+            const totalExp = data.expenses.reduce((acc, item) => acc + item.value, 0);
+            const balance = data.income - totalExp;
+
+            document.getElementById('month-total-expenses').innerText = formatBRL(totalExp);
+            document.getElementById('month-balance').innerText = formatBRL(balance);
+
+            const prevKey = getPreviousMonthKey(currentMonthKey);
+            const prevData = db[prevKey];
+            const prevExp = prevData ? prevData.expenses.reduce((acc, i) => acc + i.value, 0) : 0;
+            const delta = totalExp - prevExp;
+            
+            const deltaEl = document.getElementById('month-delta-val');
+            deltaEl.innerText = (delta > 0 ? '+' : '') + formatBRL(delta);
+            deltaEl.className = `text-3xl font-bold privacy-blur ${delta > 0 ? 'text-rose-400' : (delta < 0 ? 'text-emerald-400' : 'text-white')}`;
+            document.getElementById('month-delta-text').innerText = prevData ? (delta > 0 ? "A mais que o mês anterior." : "De economia vs mês anterior.") : "Sem dados anteriores.";
+
+            const tbody = document.getElementById('expensesTableBody');
+            tbody.innerHTML = '';
+            
+            if (filteredExpenses.length === 0) {
+                document.getElementById('empty-state').classList.remove('hidden');
+                if(data.expenses.length > 0) document.getElementById('empty-state').querySelector('p').innerText = "Nenhum resultado para a busca.";
+            } else {
+                document.getElementById('empty-state').classList.add('hidden');
+                filteredExpenses.forEach((item) => {
+                    const realIndex = data.expenses.indexOf(item);
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/50 group transition-colors";
+                    tr.innerHTML = `
+                        <td class="px-6 py-3">
+                            <select onchange="updateExpense(${realIndex}, 'category', this.value)" class="bg-transparent text-slate-700 dark:text-slate-300 font-medium cursor-pointer focus:outline-none focus:text-blue-500 text-xs md:text-sm dark:bg-transparent">
+                                ${settings.categories.map(c => `<option value="${c}" ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}
+                            </select>
+                        </td>
+                        <td class="px-6 py-3">
+                            <input type="text" value="${item.item}" onchange="updateExpense(${realIndex}, 'item', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none text-slate-600 dark:text-slate-400 text-xs md:text-sm">
+                        </td>
+                        <td class="px-6 py-3 text-right">
+                            <input type="number" value="${item.value}" onchange="updateExpense(${realIndex}, 'value', this.value)" class="w-24 text-right bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none font-bold text-slate-800 dark:text-slate-200 text-xs md:text-sm privacy-blur">
+                        </td>
+                        <td class="px-6 py-3 text-center">
+                            <button onclick="deleteExpense(${realIndex})" class="text-slate-300 hover:text-rose-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            renderPieChart(data.expenses);
+            renderBudgetBars(data.expenses);
+            lucide.createIcons();
+        }
+
+        function renderBudgetBars(expenses) {
+            const container = document.getElementById('budget-bars-container');
+            container.innerHTML = '';
+
+            const spentByCat = {};
+            expenses.forEach(e => spentByCat[e.category] = (spentByCat[e.category] || 0) + e.value);
+
+            let hasBudgets = false;
+
+            settings.categories.forEach(cat => {
+                const limit = settings.budgets[cat];
+                if (limit && limit > 0) {
+                    hasBudgets = true;
+                    const spent = spentByCat[cat] || 0;
+                    const percent = Math.min((spent / limit) * 100, 100);
+                    
+                    let barColor = 'bg-emerald-500';
+                    if (percent > 75) barColor = 'bg-yellow-500';
+                    if (percent >= 100) barColor = 'bg-rose-500';
+                    if (spent > limit) barColor = 'bg-rose-600';
+
+                    const html = `
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-600 dark:text-slate-300 font-medium">${cat}</span>
+                                <span class="${spent > limit ? 'text-rose-500 font-bold' : 'text-slate-500 dark:text-slate-400'} privacy-blur">
+                                    ${formatBRL(spent)} / ${formatBRL(limit)}
+                                </span>
+                            </div>
+                            <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                                <div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += html;
+                }
+            });
+
+            if(!hasBudgets) {
+                container.innerHTML = `<button onclick="openSettingsModal()" class="w-full py-4 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 hover:text-blue-500 hover:border-blue-200 transition-colors text-xs flex flex-col items-center gap-1">
+                    <i data-lucide="target" class="w-4 h-4"></i>
+                    Definir Metas
+                </button>`;
+            }
+        }
+
+        function renderDashboardView() {
+            const keys = Object.keys(db).sort();
+            const last12 = keys.slice(-12);
+            const dataExpense = last12.map(k => db[k].expenses.reduce((acc, i) => acc + i.value, 0));
+
+            if (dataExpense.length > 0) {
+                const totalAllExp = dataExpense.reduce((a, b) => a + b, 0);
+                document.getElementById('dash-avg-expense').innerText = formatBRL(totalAllExp / dataExpense.length);
+                
+                const totalAllInc = last12.map(k => db[k].income).reduce((a,b) => a+b, 0);
+                document.getElementById('dash-total-saved').innerText = formatBRL(totalAllInc - totalAllExp);
+                
+                let maxExp = Math.max(...dataExpense);
+                document.getElementById('dash-highest-month').innerText = last12[dataExpense.indexOf(maxExp)] || "-";
+            }
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            if(trendChart) trendChart.destroy();
+
+            const barColor = settings.theme === 'dark' ? '#94a3b8' : '#334155';
+            const gridColor = settings.theme === 'dark' ? '#1e293b' : '#f1f5f9';
+            const textColor = settings.theme === 'dark' ? '#cbd5e1' : '#64748b';
+
+            trendChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: last12,
+                    datasets: [{
+                        label: 'Gastos (R$)',
+                        data: dataExpense,
+                        backgroundColor: barColor,
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => formatBRL(c.raw) } }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: gridColor }, 
+                            ticks: { color: textColor, callback: (val) => 'R$ ' + val } 
+                        },
+                        x: { grid: { display: false }, ticks: { color: textColor } }
+                    }
+                }
+            });
+        }
+
+        function renderPieChart(expenses) {
+            const ctx = document.getElementById('monthPieChart').getContext('2d');
+            const cats = {};
+            expenses.forEach(e => cats[e.category] = (cats[e.category] || 0) + e.value);
+            
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#64748b'];
+            
+            if(monthPieChart) monthPieChart.destroy();
+            monthPieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(cats),
+                    datasets: [{ data: Object.values(cats), backgroundColor: colors, borderWidth: 0 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 }, color: settings.theme === 'dark' ? '#cbd5e1' : '#64748b' } },
+                    },
+                    cutout: '70%',
+                    elements: { arc: { borderColor: settings.theme === 'dark' ? '#0f172a' : '#ffffff', borderWidth: 2 } }
+                }
+            });
+        }
+
+        // --- CRUD ACTIONS ---
+        function updateIncome(val) { 
+            db[currentMonthKey].income = Number(val); 
+            saveDB(); 
+            showToast('Renda atualizada');
+        }
+        function addExpenseItem() { 
+            db[currentMonthKey].expenses.push({ id: Date.now(), category: settings.categories[0], item: 'Nova Despesa', value: 0 }); 
+            saveDB(); 
+            showToast('Item adicionado');
+        }
+        function updateExpense(idx, field, val) { 
+            if(field==='value') val=Number(val); 
+            db[currentMonthKey].expenses[idx][field] = val; 
+            saveDB(); 
+        }
+        function deleteExpense(idx) { 
+            db[currentMonthKey].expenses.splice(idx, 1); 
+            saveDB(); 
+            showToast('Item removido', 'error');
+        }
+
+        function copyPreviousMonth() {
+            const prevKey = getPreviousMonthKey(currentMonthKey);
+            const prevData = db[prevKey];
+            if(!prevData || prevData.expenses.length === 0) { showToast('Mês anterior vazio', 'info'); return; }
+
+            if(confirm(`Copiar ${prevData.expenses.length} itens de ${prevKey}?`)) {
+                prevData.expenses.forEach(e => {
+                    db[currentMonthKey].expenses.push({ id: Date.now() + Math.random(), category: e.category, item: e.item, value: e.value });
+                });
+                saveDB();
+                showToast('Itens copiados!');
+            }
+        }
+
+        // --- SETTINGS MODAL ---
+        function openSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            const list = document.getElementById('modal-categories-list');
+            modal.classList.remove('hidden');
+
+            list.innerHTML = '';
+            settings.categories.forEach(cat => {
+                const currentLimit = settings.budgets[cat] || 0;
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 flex-1">
+                        <button onclick="removeCategory('${cat}')" class="text-slate-300 hover:text-rose-500"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">${cat}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400">R$</span>
+                        <input type="number" value="${currentLimit}" onchange="updateBudget('${cat}', this.value)" class="w-24 px-2 py-1 text-right text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded focus:border-blue-500 text-slate-800 dark:text-white outline-none">
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); renderAll(); }
+
+        function addNewCategory() {
+            const input = document.getElementById('newCatName');
+            const name = input.value.trim();
+            if(name && !settings.categories.includes(name)) {
+                settings.categories.push(name);
+                saveSettings();
+                input.value = '';
+                openSettingsModal(); 
+                showToast('Categoria criada');
+            }
+        }
+
+        function removeCategory(cat) {
+            if(confirm(`Remover "${cat}"?`)) {
+                settings.categories = settings.categories.filter(c => c !== cat);
+                saveSettings();
+                openSettingsModal();
+            }
+        }
+
+        function updateBudget(cat, val) { settings.budgets[cat] = Number(val); saveSettings(); }
+        function formatBRL(val) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val); }
+    </script>
+</body>
+</html>
